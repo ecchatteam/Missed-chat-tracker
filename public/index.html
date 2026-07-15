@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Missed Chat Tracker</title>
+<style>
+  :root{
+    --ink:#1A2233; --muted:#6B7690; --border:#E1E6EF; --bg:#F1F4F9;
+    --blue:#2F80ED; --green:#1D9A6C; --amber:#E8A33D; --danger:#D6455A;
+    --card:#fff; --brand:var(--blue); --teal:#0EA5B7; --text:var(--ink); --ink-soft:var(--muted);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--ink)}
+  header{background:#152040;color:#fff;padding:16px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+  header h1{font-size:18px;margin:0}
+  header .sub{font-size:12.5px;color:#AEB9D1}
+  .container{max-width:1200px;margin:0 auto;padding:20px}
+  .tabs{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+  .tab-btn{background:#fff;border:1px solid var(--border);padding:9px 16px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;color:var(--muted)}
+  .tab-btn.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+  .card{background:#fff;border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:16px}
+  .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+  select,input[type=file]{padding:7px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px}
+  button{cursor:pointer}
+  .btn{background:var(--blue);color:#fff;border:none;padding:8px 16px;border-radius:7px;font-size:13px;font-weight:700}
+  .btn.ghost{background:#fff;color:var(--blue);border:1px solid var(--blue)}
+  .btn.danger{background:#fff;color:var(--danger);border:1px solid var(--danger)}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th,td{border:1px solid var(--border);padding:7px 9px;text-align:left}
+  th{background:#F5F7FB;font-weight:700}
+  .week-head td{background:#DCE8FB;font-weight:800;color:#16406E}
+  input.cell-input, select.cell-select{width:100%;border:1px solid transparent;padding:4px 6px;font-size:12.5px;border-radius:5px;background:transparent}
+  input.cell-input:hover, select.cell-select:hover{border-color:var(--border);background:#FAFBFD}
+  select.cell-select.empty{background:#FFF6E0}
+  .toast{position:fixed;bottom:20px;right:20px;background:var(--ink);color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;opacity:0;transition:.2s;pointer-events:none;z-index:99}
+  .toast.show{opacity:1}
+  .toast.err{background:var(--danger)}
+  .stat-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+  .stat{background:#F5F7FB;border-radius:8px;padding:10px 16px;min-width:120px}
+  .stat b{display:block;font-size:22px}
+  .stat span{font-size:11.5px;color:var(--muted);font-weight:700;text-transform:uppercase}
+  .chart-wrap{max-width:900px;margin-top:14px;height:340px;position:relative}
+  .empty{color:var(--muted);text-align:center;padding:30px}
+  /* ── Reports module (executive dashboard style) ──────────────── */
+  .rep-topbar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:8px}
+  .rep-title{font-size:16px;font-weight:800;color:var(--ink)}
+  .rep-range-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .rep-preset-btn{background:var(--card);border:1px solid var(--border);color:var(--muted);padding:7px 14px;border-radius:8px;font-size:12.5px;font-weight:700;cursor:pointer}
+  .rep-preset-btn:hover{border-color:var(--brand)}
+  .rep-preset-btn.active{background:var(--brand);border-color:var(--brand);color:#fff}
+  .edit-preset-btn{background:var(--card);border:1px solid var(--border);color:var(--muted);padding:7px 14px;border-radius:8px;font-size:12.5px;font-weight:700;cursor:pointer}
+  .edit-preset-btn:hover{border-color:var(--brand)}
+  .edit-preset-btn.active{background:var(--brand);border-color:var(--brand);color:#fff}
+  .rep-more-select{background:var(--card);border:1px solid var(--border);color:var(--muted);padding:7px 10px;border-radius:8px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit}
+  .rep-more-select.active{background:var(--brand);border-color:var(--brand);color:#fff}
+  .rep-range-sep{color:var(--border);font-weight:700}
+  .rep-range-label{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);font-weight:700}
+  .rep-range-label input[type=date], .rep-range-label select{border:1px solid var(--border);border-radius:8px;padding:6px 8px;font-size:12.5px;font-family:inherit;color:var(--ink);background:var(--card)}
+  .rep-range-summary{font-size:12.5px;color:var(--muted);margin:2px 0 16px;font-family:ui-monospace,monospace}
+  .rep-kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:18px}
+  .rep-kpi-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 18px}
+  .rep-kpi-num{font-size:28px;font-weight:800;color:var(--ink);line-height:1.1}
+  .rep-kpi-label{font-size:11.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.3px;margin-top:4px}
+  .rep-kpi-sub{font-size:11.5px;color:var(--muted);margin-top:2px}
+  .rep-kpi-card.rep-kpi-highest .rep-kpi-num{color:#C0392B}
+  .rep-kpi-card.rep-kpi-lowest .rep-kpi-num{color:var(--green)}
+  .rep-chart-row{display:grid;grid-template-columns:1.4fr 1fr;gap:16px}
+  @media (max-width:900px){ .rep-chart-row{grid-template-columns:1fr} }
+  .rep-chart-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px}
+  .rep-chart-card h3{margin:0 0 14px;font-size:13px;color:var(--ink-soft);font-weight:700}
+  .rep-chart-body{min-height:220px}
+  .rep-chart-body-donut{display:flex;align-items:center;justify-content:center;flex-wrap:wrap}
+  .rep-bar-row{display:flex;align-items:center;gap:10px;margin-bottom:9px}
+  .rep-bar-name{width:150px;flex-shrink:0;font-size:12px;color:var(--text);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rep-bar-track{flex:1;background:var(--bg);border-radius:6px;height:18px;position:relative;overflow:hidden}
+  .rep-bar-fill{height:100%;background:linear-gradient(90deg,var(--brand),var(--teal));border-radius:6px;transition:width .3s}
+  .rep-bar-val{width:30px;flex-shrink:0;font-size:12px;font-weight:700;color:var(--ink)}
+  .rep-empty{color:var(--muted);font-size:13px;text-align:center;padding:40px 10px}
+  .rep-legend{display:flex;flex-direction:column;gap:8px;margin-left:18px}
+  .rep-legend-item{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text)}
+  .rep-legend-swatch{width:11px;height:11px;border-radius:3px;flex-shrink:0}
+
+  /* ── Login screen ─────────────────────────────────────────── */
+  #loginScreen{position:fixed;inset:0;background:#152040;display:flex;align-items:center;justify-content:center;z-index:200}
+  #loginScreen.hidden{display:none}
+  .login-card{background:#fff;border-radius:14px;padding:32px 36px;width:100%;max-width:340px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+  .login-card h2{margin:0 0 4px;font-size:18px;color:var(--ink)}
+  .login-card .sub{font-size:12.5px;color:var(--muted);margin-bottom:20px}
+  .login-card label{display:block;font-size:12px;font-weight:700;color:var(--muted);margin:12px 0 5px}
+  .login-card input{width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:7px;font-size:13px}
+  .login-card .btn{width:100%;margin-top:18px;padding:10px;font-size:13.5px}
+  .login-error{color:var(--danger);font-size:12.5px;margin-top:10px;min-height:15px}
+  #appRoot.hidden{display:none}
+  /* Guest role: hide anything admin-only, and make the record table read-only */
+  body.role-guest .admin-only{display:none !important}
+  body.role-guest input.cell-input, body.role-guest select.cell-select{pointer-events:none;opacity:.65;background:#F5F7FB}
+  .user-badge{font-size:12px;color:#AEB9D1;display:flex;align-items:center;gap:8px}
+  .user-badge .role-pill{background:rgba(255,255,255,.12);padding:2px 9px;border-radius:20px;font-weight:700;text-transform:uppercase;font-size:10.5px;letter-spacing:.3px}
+  .user-badge button{background:none;border:1px solid #3A4A72;color:#fff;padding:5px 12px;border-radius:7px;font-size:12px;cursor:pointer}
+</style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div id="loginScreen">
+  <div class="login-card">
+    <h2>📊 Missed Chat Tracker</h2>
+    <div class="sub">Sign in to continue</div>
+    <label>Username</label>
+    <input type="text" id="loginUsername" autocomplete="username">
+    <label>Password</label>
+    <input type="password" id="loginPassword" autocomplete="current-password">
+    <button class="btn" id="loginBtn">Log in</button>
+    <div class="login-error" id="loginError"></div>
+  </div>
+</div>
+
+<div id="appRoot" class="hidden">
+<header>
+  <div>
+    <h1>📊 Missed Chat Tracker</h1>
+    <div class="sub">Weekly import → fill in the gaps → auto reports</div>
+  </div>
+  <div style="display:flex;gap:14px;align-items:center">
+    <select id="monthPicker"></select>
+    <div class="user-badge">
+      <span id="userBadgeName"></span>
+      <span class="role-pill" id="userBadgeRole"></span>
+      <button id="logoutBtn">Log out</button>
+    </div>
+  </div>
+</header>
+
+<div class="container">
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="import">📥 Import & Edit</button>
+    <button class="tab-btn" data-tab="reports">📈 Reports</button>
+  </div>
+
+  <!-- IMPORT & EDIT TAB -->
+  <div id="tab-import">
+    <div class="card admin-only">
+      <div class="toolbar">
+        <input type="file" id="csvFile" accept=".csv">
+        <button class="btn" id="uploadBtn">Upload weekly CSV</button>
+        <span id="uploadStatus" style="font-size:12.5px;color:var(--muted)"></span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="rep-topbar" style="margin-bottom:0">
+        <div class="rep-title" style="font-size:13px">🔎 Filter rows</div>
+        <div class="rep-range-controls">
+          <button class="edit-preset-btn" data-preset="today">Today</button>
+          <button class="edit-preset-btn" data-preset="week">This week</button>
+          <button class="edit-preset-btn" data-preset="lastweek">Last week</button>
+          <button class="edit-preset-btn" data-preset="month">This month</button>
+          <button class="edit-preset-btn" data-preset="lastmonth">Last month</button>
+          <button class="edit-preset-btn" data-preset="quarter">Last 3 months</button>
+          <button class="edit-preset-btn" data-preset="year">This year</button>
+          <select class="rep-more-select" id="editMoreSelect">
+            <option value="">More ▾</option>
+            <option value="lastyear">Previous year</option>
+            <option value="last6months">Last 6 months</option>
+            <option value="last12months">Last 12 months</option>
+            <option value="last12weeks">Last 12 weeks</option>
+          </select>
+          <span class="rep-range-sep">·</span>
+          <label class="rep-range-label">From <input type="date" id="editFromInput"></label>
+          <label class="rep-range-label">To <input type="date" id="editToInput"></label>
+          <button class="btn" id="editClearFilterBtn" style="padding:6px 12px;font-size:12.5px">Clear (use month picker)</button>
+        </div>
+      </div>
+      <div class="rep-range-summary" id="editRangeSummary" style="margin:2px 0 0"></div>
+    </div>
+    <div class="card">
+      <div class="toolbar" style="justify-content:space-between">
+        <div class="admin-only" style="display:flex;gap:8px;align-items:center">
+          <button class="btn danger" id="deleteSelectedBtn" disabled>🗑 Delete selected (<span id="selectedCount">0</span>)</button>
+        </div>
+        <button class="btn danger admin-only" id="deleteMonthBtn">🗑 Delete this entire month</button>
+      </div>
+      <div id="editTableWrap"><div class="empty">Pick a month above, or upload a CSV to get started.</div></div>
+    </div>
+  </div>
+
+  <!-- REPORTS TAB -->
+  <div id="tab-reports" style="display:none">
+    <div class="rep-topbar">
+      <div class="rep-title">📈 Missed Chat Reports</div>
+      <div class="rep-range-controls">
+        <button class="rep-preset-btn" data-preset="today">Today</button>
+        <button class="rep-preset-btn" data-preset="week">This week</button>
+        <button class="rep-preset-btn" data-preset="lastweek">Last week</button>
+        <button class="rep-preset-btn active" data-preset="month">This month</button>
+        <button class="rep-preset-btn" data-preset="lastmonth">Last month</button>
+        <button class="rep-preset-btn" data-preset="quarter">Last 3 months</button>
+        <button class="rep-preset-btn" data-preset="year">This year</button>
+        <select class="rep-more-select" id="repMoreSelect">
+          <option value="">More ▾</option>
+          <option value="lastyear">Previous year</option>
+          <option value="last6months">Last 6 months</option>
+          <option value="last12months">Last 12 months</option>
+          <option value="last12weeks">Last 12 weeks</option>
+        </select>
+        <span class="rep-range-sep">·</span>
+        <label class="rep-range-label">From <input type="date" id="repFromInput"></label>
+        <label class="rep-range-label">To <input type="date" id="repToInput"></label>
+        <span class="rep-range-sep">·</span>
+        <label class="rep-range-label">Team/Vertical
+          <select id="verticalPicker"><option value="All">All verticals</option></select>
+        </label>
+      </div>
+    </div>
+    <div class="rep-range-summary" id="repRangeSummary"></div>
+
+    <div class="rep-kpi-row" id="repKpis"></div>
+
+    <div class="rep-chart-row">
+      <div class="rep-chart-card">
+        <h3>Missed chats — by reason</h3>
+        <div id="repReasonBar" class="rep-chart-body"></div>
+      </div>
+      <div class="rep-chart-card">
+        <h3>Distribution — by vertical</h3>
+        <div id="repVerticalDonut" class="rep-chart-body rep-chart-body-donut"></div>
+      </div>
+    </div>
+
+    <div class="rep-chart-row" style="margin-top:16px">
+      <div class="rep-chart-card">
+        <h3>Trend — missed chats by week</h3>
+        <div id="repWeekBar" class="rep-chart-body"></div>
+      </div>
+      <div class="rep-chart-card">
+        <h3>Top departments</h3>
+        <div id="repDeptDonut" class="rep-chart-body rep-chart-body-donut"></div>
+      </div>
+    </div>
+
+    <div class="rep-chart-row" style="margin-top:16px">
+      <div class="rep-chart-card" style="grid-column:1/-1">
+        <h3>Missed chats — by tech (Missed By)</h3>
+        <div id="repMissedByBar" class="rep-chart-body"></div>
+      </div>
+    </div>
+
+    <div class="rep-chart-row" style="margin-top:16px">
+      <div class="rep-chart-card" style="grid-column:1/-1">
+        <h3>Missed chats — by time slot (00:00 → 23:00)</h3>
+        <div id="repTimeSlotBar" class="rep-chart-body"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let CURRENT_MONTH = null;
+let REASON_OPTIONS = [], TIME_RANGE_OPTIONS = [], VERTICALS = [];
+let EDIT_MODE = 'month'; // 'month' (top-right month picker) or 'range' (filter bar below)
+let editFrom = null, editTo = null;
+let repFrom = null, repTo = null;
+
+function showToast(msg, isErr){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (isErr ? ' err' : '');
+  setTimeout(()=> t.className = 'toast', 2200);
+}
+function escAttr(v){ return String(v==null?'':v).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function formatDate(iso){
+  const d = new Date(iso);
+  return d.toLocaleString('en-GB', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false, timeZone:'UTC' });
+}
+function todayISO(){ const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+
+// ── Top-level tabs (Import & Edit / Reports) ──────────
+document.querySelectorAll('.tab-btn[data-tab]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn[data-tab]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const tab = btn.dataset.tab;
+    document.getElementById('tab-import').style.display = tab === 'import' ? 'block' : 'none';
+    document.getElementById('tab-reports').style.display = tab === 'reports' ? 'block' : 'none';
+    if(tab === 'reports') loadReports();
+  });
+});
+
+// ── Meta + months ─────────────────────────────────────
+async function loadMeta(){
+  const res = await fetch('/api/meta');
+  const data = await res.json();
+  REASON_OPTIONS = data.reasonOptions; TIME_RANGE_OPTIONS = data.timeRangeOptions; VERTICALS = data.verticals;
+  const vp = document.getElementById('verticalPicker');
+  vp.innerHTML = '<option value="All">All verticals</option>' + VERTICALS.map(v => `<option value="${escAttr(v)}">${escAttr(v)}</option>`).join('');
+}
+
+async function loadMonths(){
+  const res = await fetch('/api/months');
+  const data = await res.json();
+  const now = new Date();
+  const currentYYYYMM = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const months = data.months.includes(currentYYYYMM) ? data.months : [currentYYYYMM, ...data.months];
+
+  const picker = document.getElementById('monthPicker');
+  picker.innerHTML = months.map(m => `<option value="${m}">${monthLabel(m)}</option>`).join('');
+  CURRENT_MONTH = months[0];
+  picker.value = CURRENT_MONTH;
+}
+function monthLabel(yyyymm){
+  const [y,m] = yyyymm.split('-');
+  return new Date(Number(y), Number(m)-1, 1).toLocaleString('en-GB',{month:'long', year:'numeric'});
+}
+document.getElementById('monthPicker').addEventListener('change', (e)=>{
+  CURRENT_MONTH = e.target.value;
+  EDIT_MODE = 'month';
+  document.querySelectorAll('.edit-preset-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('editMoreSelect').value = '';
+  document.getElementById('editFromInput').value = '';
+  document.getElementById('editToInput').value = '';
+  document.getElementById('editRangeSummary').textContent = '';
+  loadRecords();
+});
+document.getElementById('verticalPicker').addEventListener('change', loadReports);
+
+// ── Upload ────────────────────────────────────────────
+document.getElementById('uploadBtn').addEventListener('click', async ()=>{
+  const fileInput = document.getElementById('csvFile');
+  const statusEl = document.getElementById('uploadStatus');
+  if(!fileInput.files.length){ showToast('Choose a CSV file first.', true); return; }
+  const fd = new FormData();
+  fd.append('file', fileInput.files[0]);
+  statusEl.textContent = 'Uploading…';
+  try{
+    const res = await fetch('/api/upload', { method:'POST', body: fd });
+    const data = await res.json();
+    if(data.success){
+      statusEl.textContent = `+${data.added} new · ${data.skippedDuplicate} duplicate(s) skipped · months touched: ${data.monthsTouched.join(', ') || '—'}`;      showToast(`Imported ${data.added} new row(s).`);
+      await loadMonths();
+      if(data.monthsTouched.length){ CURRENT_MONTH = data.monthsTouched[0]; document.getElementById('monthPicker').value = CURRENT_MONTH; }
+      EDIT_MODE = 'month';
+      document.querySelectorAll('.edit-preset-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('editMoreSelect').value = '';
+      document.getElementById('editFromInput').value = '';
+      document.getElementById('editToInput').value = '';
+      document.getElementById('editRangeSummary').textContent = '';
+      loadRecords();
+    } else {
+      statusEl.textContent = '';
+      showToast(data.message || 'Upload failed.', true);
+    }
+  }catch(e){ showToast('Could not reach the server.', true); }
+});
+
+// ── Data entry table ──────────────────────────────────
+function editDateRange(preset){ return repDateRange(preset); } // same calendar rules as Reports
+function editSetPreset(preset){
+  const [f, t] = editDateRange(preset);
+  editFrom = f; editTo = t; EDIT_MODE = 'range';
+  document.getElementById('editFromInput').value = editFrom;
+  document.getElementById('editToInput').value = editTo;
+  document.querySelectorAll('.edit-preset-btn').forEach(b => b.classList.toggle('active', b.dataset.preset === preset));
+  const moreSelect = document.getElementById('editMoreSelect');
+  const isMoreOption = [...moreSelect.options].some(o => o.value === preset);
+  moreSelect.value = isMoreOption ? preset : '';
+  moreSelect.classList.toggle('active', isMoreOption);
+  loadRecordsRange();
+}
+document.querySelectorAll('.edit-preset-btn').forEach(btn => btn.addEventListener('click', ()=> editSetPreset(btn.dataset.preset)));
+document.getElementById('editMoreSelect').addEventListener('change', function(){
+  if(this.value) editSetPreset(this.value);
+});
+document.getElementById('editFromInput').addEventListener('change', function(){
+  editFrom = this.value; EDIT_MODE = 'range';
+  document.querySelectorAll('.edit-preset-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('editMoreSelect').value = '';
+  if(editFrom && editTo) loadRecordsRange();
+});
+document.getElementById('editToInput').addEventListener('change', function(){
+  editTo = this.value; EDIT_MODE = 'range';
+  document.querySelectorAll('.edit-preset-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('editMoreSelect').value = '';
+  if(editFrom && editTo) loadRecordsRange();
+});
+document.getElementById('editClearFilterBtn').addEventListener('click', ()=>{
+  EDIT_MODE = 'month';
+  editFrom = null; editTo = null;
+  document.querySelectorAll('.edit-preset-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('editMoreSelect').value = '';
+  document.getElementById('editFromInput').value = '';
+  document.getElementById('editToInput').value = '';
+  document.getElementById('editRangeSummary').textContent = '';
+  loadRecords();
+});
+
+async function loadRecordsRange(){
+  if(!editFrom || !editTo) return;
+  document.getElementById('editRangeSummary').textContent = `${formatDisplayDate(editFrom)} → ${formatDisplayDate(editTo)}`;
+  let data;
+  try{ data = await apiCall(`/api/records/range?from=${editFrom}&to=${editTo}`); }
+  catch(e){ showToast(e.message, true); return; }
+  if(!data.success){ document.getElementById('editTableWrap').innerHTML = `<div class="empty">${escAttr(data.message||'Could not load records.')}</div>`; return; }
+  REASON_OPTIONS = data.reasonOptions; TIME_RANGE_OPTIONS = data.timeRangeOptions;
+  renderEditTable(data.records);
+}
+
+// Refresh whichever view is currently active — used after uploads/edits/deletes.
+function refreshEditView(){
+  if(EDIT_MODE === 'range') loadRecordsRange();
+  else loadRecords();
+}
+
+async function loadRecords(){
+  if(!CURRENT_MONTH) return;
+  const res = await fetch(`/api/records/${CURRENT_MONTH}`);
+  const data = await res.json();
+  if(!data.success){ document.getElementById('editTableWrap').innerHTML = `<div class="empty">${escAttr(data.message||'Could not load records.')}</div>`; return; }
+  REASON_OPTIONS = data.reasonOptions; TIME_RANGE_OPTIONS = data.timeRangeOptions;
+  renderEditTable(data.records);
+}
+
+function renderEditTable(records){
+  const wrap = document.getElementById('editTableWrap');
+  if(!records.length){ wrap.innerHTML = `<div class="empty">No records for this month yet. Upload a CSV above.</div>`; updateSelectedCount(); return; }
+
+  const groups = {};
+  records.forEach(r => { (groups[r.weekLabel] ||= []).push(r); });
+  const weekLabels = Object.keys(groups).sort((a,b)=> parseInt(a) - parseInt(b));
+
+  let html = `<table><thead><tr>
+    <th class="admin-only" style="width:30px"><input type="checkbox" id="selectAllRows"></th>
+    <th style="width:40px">Sl.No</th><th>Visitor ID</th><th>Department</th><th style="width:180px">Missed By</th>
+    <th>Attender</th><th style="width:150px">Date</th><th style="width:60px">Country</th>
+    <th style="width:130px">Time Range</th><th style="width:170px">Reason for Missed</th><th class="admin-only" style="width:40px"></th>
+  </tr></thead><tbody>`;
+
+  weekLabels.forEach(wk => {
+    html += `<tr class="week-head"><td colspan="11">${escAttr(wk)}</td></tr>`;
+    groups[wk].forEach((r, i) => {
+      html += `<tr data-id="${escAttr(r.id)}" data-yyyymm="${escAttr(r._yyyymm || CURRENT_MONTH || '')}">
+        <td class="admin-only"><input type="checkbox" class="row-checkbox" value="${escAttr(r.id)}"></td>
+        <td>${i+1}</td>
+        <td>${escAttr(r.visitorId)}</td>
+        <td>${escAttr(r.department)}</td>
+        <td><input class="cell-input missed-by" type="text" value="${escAttr(r.missedBy)}" placeholder="Names…"></td>
+        <td>${escAttr(r.attender)}</td>
+        <td>${formatDate(r.dateISO)}</td>
+        <td>${escAttr(r.country)}</td>
+        <td><select class="cell-select time-range">${TIME_RANGE_OPTIONS.map(t=>`<option value="${t}" ${t===r.timeRange?'selected':''}>${t}</option>`).join('')}</select></td>
+        <td><select class="cell-select reason ${r.reasonForMissed?'':'empty'}">
+              <option value="">— pick —</option>
+              ${REASON_OPTIONS.map(rs=>`<option value="${escAttr(rs)}" ${rs===r.reasonForMissed?'selected':''}>${escAttr(rs)}</option>`).join('')}
+            </select></td>
+        <td class="admin-only"><button class="btn danger" style="padding:4px 8px;font-size:11px" onclick="deleteRecord('${escAttr(r.id)}','${escAttr(r._yyyymm || CURRENT_MONTH || '')}')">✕</button></td>
+      </tr>`;
+    });
+  });
+  html += `</tbody></table>`;
+  wrap.innerHTML = html;
+
+  document.getElementById('selectAllRows').addEventListener('change', (e)=>{
+    wrap.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = e.target.checked);
+    updateSelectedCount();
+  });
+  wrap.querySelectorAll('.row-checkbox').forEach(cb => cb.addEventListener('change', updateSelectedCount));
+
+  wrap.querySelectorAll('tr[data-id]').forEach(tr => {
+    const id = tr.dataset.id;
+    const yyyymm = tr.dataset.yyyymm;
+    tr.querySelector('.missed-by').addEventListener('change', (e)=> saveField(id, { missedBy: e.target.value }, yyyymm));
+    tr.querySelector('.time-range').addEventListener('change', (e)=> saveField(id, { timeRange: e.target.value }, yyyymm));
+    tr.querySelector('.reason').addEventListener('change', (e)=>{
+      e.target.classList.toggle('empty', !e.target.value);
+      saveField(id, { reasonForMissed: e.target.value }, yyyymm);
+    });
+  });
+  updateSelectedCount();
+}
+
+function updateSelectedCount(){
+  const count = document.querySelectorAll('.row-checkbox:checked').length;
+  document.getElementById('selectedCount').textContent = count;
+  document.getElementById('deleteSelectedBtn').disabled = count === 0;
+}
+
+async function saveField(id, body, yyyymm){
+  const month = yyyymm || CURRENT_MONTH;
+  try{
+    const data = await apiCall(`/api/records/${month}/${id}`, {
+      method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+    });
+    if(!data.success) showToast(data.message || 'Could not save.', true);
+  }catch(e){ showToast(e.message, true); }
+}
+
+async function deleteRecord(id, yyyymm){
+  const month = yyyymm || CURRENT_MONTH;
+  if(!confirm('Remove this row? This cannot be undone.')) return;
+  try{
+    const data = await apiCall(`/api/records/${month}/${id}`, { method:'DELETE' });
+    if(data.success){ showToast('Row removed.'); refreshEditView(); }
+    else showToast(data.message || 'Could not delete.', true);
+  }catch(e){ showToast(e.message, true); }
+}
+
+// Wraps fetch + JSON parsing so failures are diagnosable instead of a
+// generic "could not reach the server" — e.g. a 404 from an endpoint that
+// doesn't exist yet (usually because the server process wasn't restarted
+// after updating server.js) now says exactly that.
+async function apiCall(url, options){
+  let res;
+  try{ res = await fetch(url, options); }
+  catch(e){ throw new Error('Could not reach the server at all — is it running?'); }
+  const text = await res.text();
+  let data;
+  try{ data = JSON.parse(text); }
+  catch(e){
+    throw new Error(`Server returned ${res.status} (not JSON) for ${url}. If you just updated server.js, make sure you stopped and restarted "node server.js" — Node doesn't auto-reload.`);
+  }
+  return data;
+}
+
+document.getElementById('deleteSelectedBtn').addEventListener('click', async ()=>{
+  const checked = [...document.querySelectorAll('.row-checkbox:checked')];
+  if(!checked.length) return;
+  if(!confirm(`Delete ${checked.length} selected row(s)? This cannot be undone.`)) return;
+  const byMonth = {};
+  checked.forEach(cb => {
+    const tr = cb.closest('tr[data-id]');
+    const month = tr.dataset.yyyymm || CURRENT_MONTH;
+    (byMonth[month] ||= []).push(cb.value);
+  });
+  try{
+    let removed = 0;
+    for(const [month, ids] of Object.entries(byMonth)){
+      const data = await apiCall(`/api/records/${month}/delete-bulk`, {
+        method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ ids })
+      });
+      if(data.success) removed += data.removed;
+      else showToast(data.message || `Could not delete rows for ${month}.`, true);
+    }
+    showToast(`${removed} row(s) removed.`);
+    refreshEditView();
+  }catch(e){ showToast(e.message, true); }
+});
+
+document.getElementById('deleteMonthBtn').addEventListener('click', async ()=>{
+  if(!CURRENT_MONTH) return;
+  if(!confirm(`Delete ALL data for ${monthLabel(CURRENT_MONTH)}? This removes the entire month and cannot be undone.`)) return;
+  try{
+    const data = await apiCall(`/api/months/${CURRENT_MONTH}`, { method:'DELETE' });
+    if(data.success){
+      showToast(`${monthLabel(CURRENT_MONTH)} deleted.`);
+      await loadMonths(); await refreshEditView(); if(document.getElementById('tab-reports').style.display !== 'none') loadReports();
+    } else showToast(data.message || 'Could not delete this month.', true);
+  }catch(e){ showToast(e.message, true); }
+});
+
+// ── Reports (executive dashboard) ─────────────────────
+const REP_COLORS = ['#2F80ED','#7C4DBE','#1D9A6C','#E8A33D','#D6455A','#0EA5B7','#64748B','#C2410C'];
+
+// Format a Date using its LOCAL date parts (not toISOString, which converts
+// to UTC first and silently shifts the date back a day in any timezone
+// ahead of UTC — that off-by-one was why "This week" showed 11-17 Jul
+// instead of 12-18 Jul).
+function toISO(date){ return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`; }
+
+function repDateRange(preset){
+  const today = todayISO();
+  const d = new Date(today + 'T00:00:00');
+  const y = d.getFullYear(), m = d.getMonth();
+
+  if(preset === 'today') return [today, today];
+
+  if(preset === 'week'){
+    // Sunday-Saturday calendar week containing today (matches how weeks are
+    // grouped everywhere else in the app), not a rolling 7-day lookback.
+    const s = new Date(d); s.setDate(s.getDate() - s.getDay()); // back up to Sunday
+    const e = new Date(s); e.setDate(e.getDate() + 6); // forward to Saturday
+    return [toISO(s), toISO(e)];
+  }
+  if(preset === 'lastweek'){
+    // The Sunday-Saturday week immediately before this week.
+    const s = new Date(d); s.setDate(s.getDate() - s.getDay() - 7);
+    const e = new Date(s); e.setDate(e.getDate() + 6);
+    return [toISO(s), toISO(e)];
+  }
+  if(preset === 'month'){
+    // Full current calendar month: the 1st through its last day.
+    const s = new Date(y, m, 1);
+    const e = new Date(y, m + 1, 0);
+    return [toISO(s), toISO(e)];
+  }
+  if(preset === 'lastmonth'){
+    // Full previous calendar month, e.g. if today is in July: Jun 1 - Jun 30.
+    const s = new Date(y, m - 1, 1);
+    const e = new Date(y, m, 0);
+    return [toISO(s), toISO(e)];
+  }
+  if(preset === 'quarter'){
+    // "Last 3 months" = the 3 full calendar months before this one,
+    // e.g. if today is in July: Apr 1 - Jun 30 (not a rolling 90-day window).
+    const s = new Date(y, m - 3, 1);
+    const e = new Date(y, m, 0);
+    return [toISO(s), toISO(e)];
+  }
+  if(preset === 'last6months'){
+    const s = new Date(y, m - 6, 1);
+    const e = new Date(y, m, 0);
+    return [toISO(s), toISO(e)];
+  }
+  if(preset === 'last12months'){
+    const s = new Date(y, m - 12, 1);
+    const e = new Date(y, m, 0);
+    return [toISO(s), toISO(e)];
+  }
+  if(preset === 'last12weeks'){
+    // 12 full Sunday-Saturday weeks, ending with the current week.
+    const thisSun = new Date(d); thisSun.setDate(thisSun.getDate() - thisSun.getDay());
+    const thisSat = new Date(thisSun); thisSat.setDate(thisSat.getDate() + 6);
+    const s = new Date(thisSun); s.setDate(s.getDate() - 11 * 7);
+    return [toISO(s), toISO(thisSat)];
+  }
+  if(preset === 'year'){
+    const s = new Date(y, 0, 1);
+    const e = new Date(y, 11, 31);
+    return [toISO(s), toISO(e)];
+  }
+  if(preset === 'lastyear'){
+    const s = new Date(y - 1, 0, 1);
+    const e = new Date(y - 1, 11, 31);
+    return [toISO(s), toISO(e)];
+  }
+  return [repFrom, repTo];
+}
+function repSetPreset(preset){
+  const [f, t] = repDateRange(preset);
+  repFrom = f; repTo = t;
+  document.getElementById('repFromInput').value = repFrom;
+  document.getElementById('repToInput').value = repTo;
+  document.querySelectorAll('.rep-preset-btn').forEach(b => b.classList.toggle('active', b.dataset.preset === preset));
+  const moreSelect = document.getElementById('repMoreSelect');
+  const isMoreOption = [...moreSelect.options].some(o => o.value === preset);
+  moreSelect.value = isMoreOption ? preset : '';
+  moreSelect.classList.toggle('active', isMoreOption);
+  loadReports();
+}
+document.querySelectorAll('.rep-preset-btn').forEach(btn => btn.addEventListener('click', ()=> repSetPreset(btn.dataset.preset)));
+document.getElementById('repMoreSelect').addEventListener('change', function(){
+  if(this.value) repSetPreset(this.value);
+});
+document.getElementById('repFromInput').addEventListener('change', function(){
+  repFrom = this.value;
+  document.querySelectorAll('.rep-preset-btn').forEach(b => b.classList.remove('active'));
+  const moreSelect = document.getElementById('repMoreSelect');
+  moreSelect.value = ''; moreSelect.classList.remove('active');
+  loadReports();
+});
+document.getElementById('repToInput').addEventListener('change', function(){
+  repTo = this.value;
+  document.querySelectorAll('.rep-preset-btn').forEach(b => b.classList.remove('active'));
+  const moreSelect = document.getElementById('repMoreSelect');
+  moreSelect.value = ''; moreSelect.classList.remove('active');
+  loadReports();
+});
+
+async function loadReports(){
+  if(!repFrom || !repTo){ repSetPreset('month'); return; } // sets both + calls loadReports() itself
+  const vertical = document.getElementById('verticalPicker').value;
+  document.getElementById('repRangeSummary').textContent = `${formatDisplayDate(repFrom)} → ${formatDisplayDate(repTo)} · ${vertical === 'All' ? 'All verticals' : vertical}`;
+
+  let data;
+  try{
+    data = await apiCall(`/api/report/range?from=${repFrom}&to=${repTo}&vertical=${encodeURIComponent(vertical)}`);
+  }catch(e){ showToast(e.message, true); return; }
+  if(!data.success){ showToast(data.message || 'Could not load report.', true); return; }
+  renderReports(data);
+}
+
+function formatDisplayDate(iso){
+  const d = new Date(iso + 'T00:00:00');
+  return d.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+}
+
+function repKpiCard(num, label, sub, extraClass){
+  return `<div class="rep-kpi-card ${extraClass||''}">
+    <div class="rep-kpi-num">${num}</div>
+    <div class="rep-kpi-label">${escAttr(label)}</div>
+    ${sub ? `<div class="rep-kpi-sub">${escAttr(sub)}</div>` : ''}
+  </div>`;
+}
+
+// Horizontal bar chart — self-contained CSS/HTML, no external library,
+// so it always renders (no CDN dependency, no canvas-sizing edge cases).
+function repBarChart(rows){
+  if(!rows.length) return `<div class="rep-empty">No data for this range yet.</div>`;
+  const max = Math.max(...rows.map(r=>r.value), 1);
+  return rows.map(r => `
+    <div class="rep-bar-row">
+      <div class="rep-bar-name" title="${escAttr(r.name)}">${escAttr(r.name)}</div>
+      <div class="rep-bar-track"><div class="rep-bar-fill" style="width:${Math.round(r.value/max*100)}%"></div></div>
+      <div class="rep-bar-val">${r.value}</div>
+    </div>
+  `).join('');
+}
+
+// Donut chart — pure inline SVG, same reasoning as the bar chart above.
+function repDonutChart(rows){
+  const total = rows.reduce((s,r)=>s+r.value,0);
+  if(!total) return `<div class="rep-empty">No data for this range yet.</div>`;
+  const cx = 90, cy = 90, r = 70, circumference = 2 * Math.PI * r;
+  let offset = 0;
+  const arcs = rows.filter(row => row.value > 0).map((row, i) => {
+    const frac = row.value / total;
+    const dash = frac * circumference;
+    const circle = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${REP_COLORS[i % REP_COLORS.length]}"
+      stroke-width="26" stroke-dasharray="${dash} ${circumference-dash}" stroke-dashoffset="${-offset}"
+      transform="rotate(-90 ${cx} ${cy})"></circle>`;
+    offset += dash;
+    return circle;
+  }).join('');
+  const legend = rows.filter(row => row.value > 0).map((row, i) => `
+    <div class="rep-legend-item">
+      <span class="rep-legend-swatch" style="background:${REP_COLORS[i % REP_COLORS.length]}"></span>
+      ${escAttr(row.name)} — ${row.value} (${Math.round(row.value/total*100)}%)
+    </div>
+  `).join('');
+  return `
+    <svg width="180" height="180" viewBox="0 0 180 180">${arcs}
+      <text x="${cx}" y="${cy-4}" text-anchor="middle" font-size="22" font-weight="800" fill="var(--ink)">${total}</text>
+      <text x="${cx}" y="${cy+14}" text-anchor="middle" font-size="10" fill="var(--muted)">total</text>
+    </svg>
+    <div class="rep-legend">${legend}</div>
+  `;
+}
+
+function renderReports(data){
+  const { total, avgPerDay, topReason, topTimeSlot, topMissedBy, reasonFilledPct, missedByFilledPct, byReason, byVertical, byTimeSlot, byDepartment, byWeek, byMissedBy } = data;
+
+  document.getElementById('repKpis').innerHTML = [
+    repKpiCard(total, 'Total missed chats'),
+    repKpiCard(avgPerDay.toFixed(1), 'Avg per day'),
+    topReason ? repKpiCard(topReason.value, 'Top reason', topReason.name, 'rep-kpi-highest') : repKpiCard(0, 'Top reason'),
+    topTimeSlot ? repKpiCard(topTimeSlot.value, 'Busiest time slot', topTimeSlot.name, 'rep-kpi-highest') : repKpiCard(0, 'Busiest time slot'),
+    topMissedBy ? repKpiCard(topMissedBy.value, 'Most missed by', topMissedBy.name, 'rep-kpi-highest') : repKpiCard(0, 'Most missed by', 'No names filled in yet'),
+    repKpiCard(reasonFilledPct + '%', 'Reason filled in', reasonFilledPct < 100 ? 'Some rows still need a reason' : 'All rows done', reasonFilledPct < 60 ? 'rep-kpi-highest' : 'rep-kpi-lowest'),
+  ].join('');
+
+  document.getElementById('repReasonBar').innerHTML = repBarChart(byReason);
+  document.getElementById('repVerticalDonut').innerHTML = repDonutChart(byVertical);
+  document.getElementById('repWeekBar').innerHTML = repBarChart(byWeek);
+  document.getElementById('repDeptDonut').innerHTML = repDonutChart(byDepartment);
+  document.getElementById('repMissedByBar').innerHTML = byMissedBy.length
+    ? repBarChart(byMissedBy)
+    : `<div class="rep-empty">No rows have a name in "Missed By" yet (${missedByFilledPct}% filled in) — fill it in on the Import & Edit tab to see who's missing the most chats.</div>`;
+  document.getElementById('repTimeSlotBar').innerHTML = repBarChart(byTimeSlot);
+}
+
+// ── Boot ──────────────────────────────────────────────
+async function initApp(){
+  await loadMeta();
+  await loadMonths();
+  await loadRecords();
+}
+</script>
+</div><!-- /#appRoot -->
+
+<script>
+// ── Auth gating — runs before initApp(); everything above this stays
+// exactly as it was, just no longer self-invoked at parse time. ──────
+async function checkSession(){
+  const res = await fetch('/api/auth/me');
+  const data = await res.json();
+  return data.user;
+}
+function showApp(user){
+  document.body.classList.remove('role-guest');
+  if(user.role === 'guest') document.body.classList.add('role-guest');
+  document.getElementById('userBadgeName').textContent = user.username;
+  document.getElementById('userBadgeRole').textContent = user.role;
+  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('appRoot').classList.remove('hidden');
+}
+document.getElementById('loginBtn').addEventListener('click', doLogin);
+document.getElementById('loginPassword').addEventListener('keydown', e => { if(e.key === 'Enter') doLogin(); });
+async function doLogin(){
+  const username = document.getElementById('loginUsername').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const errEl = document.getElementById('loginError');
+  errEl.textContent = '';
+  if(!username || !password){ errEl.textContent = 'Enter both username and password.'; return; }
+  try{
+    const res = await fetch('/api/auth/login', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ username, password })
+    });
+    const data = await res.json();
+    if(!data.success){ errEl.textContent = data.message || 'Login failed.'; return; }
+    showApp(data.user);
+    await initApp();
+  }catch(e){ errEl.textContent = 'Could not reach the server.'; }
+}
+document.getElementById('logoutBtn').addEventListener('click', async ()=>{
+  await fetch('/api/auth/logout', { method: 'POST' });
+  location.reload();
+});
+(async function boot(){
+  const user = await checkSession();
+  if(user){ showApp(user); await initApp(); }
+  // else: login screen stays visible (it's the default state)
+})();
+</script>
+</body>
+</html>
