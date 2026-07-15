@@ -88,6 +88,18 @@ async function readAllRecords() {
   const docs = await recordsCol().find({}, { projection: { _id: 0 } }).toArray();
   return docs.map(r => ({ ...r, _yyyymm: r.yyyymm }));
 }
+// Queries MongoDB directly for just the rows in [fromISO, toISO], using the
+// existing index on dateISO, instead of pulling the whole collection over
+// the network and filtering in Node on every single Reports click. This is
+// the main fix for the "Reports tab feels slow" issue — as your dataset
+// grows past a few thousand rows, transferring and re-parsing everything on
+// every filter click is what was actually costing the time, not Render.
+async function recordsInDateRange(fromISO, toISO) {
+  const docs = await recordsCol()
+    .find({ dateISO: { $gte: fromISO, $lte: toISO } }, { projection: { _id: 0 } })
+    .toArray();
+  return docs.map(r => ({ ...r, _yyyymm: r.yyyymm }));
+}
 async function readMonth(yyyymm) {
   const docs = await recordsCol().find({ yyyymm }, { projection: { _id: 0 } }).toArray();
   return { records: docs };
@@ -333,16 +345,12 @@ app.get('/api/records/range', async (req, res) => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(from || '') || !/^\d{4}-\d{2}-\d{2}$/.test(to || '')) {
     return res.status(400).json({ success: false, message: 'from/to must be YYYY-MM-DD' });
   }
-  const fromTime = new Date(from + 'T00:00:00Z').getTime();
-  const toTime = new Date(to + 'T23:59:59.999Z').getTime();
-  if (isNaN(fromTime) || isNaN(toTime) || fromTime > toTime) {
+  const fromISO = new Date(from + 'T00:00:00Z').toISOString();
+  const toISO = new Date(to + 'T23:59:59.999Z').toISOString();
+  if (isNaN(Date.parse(fromISO)) || isNaN(Date.parse(toISO)) || fromISO > toISO) {
     return res.status(400).json({ success: false, message: 'Invalid date range' });
   }
-  const all = await readAllRecords();
-  const inRange = all.filter(r => {
-    const t = new Date(r.dateISO).getTime();
-    return t >= fromTime && t <= toTime;
-  });
+  const inRange = await recordsInDateRange(fromISO, toISO);
   const records = assignWeekLabels(inRange).sort((a, b) => new Date(a.dateISO) - new Date(b.dateISO));
   res.json({ success: true, from, to, records, reasonOptions: REASON_OPTIONS, timeRangeOptions: TIME_RANGE_OPTIONS, verticals: VERTICALS });
 });
@@ -559,17 +567,13 @@ app.get('/api/report/range', async (req, res) => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(from || '') || !/^\d{4}-\d{2}-\d{2}$/.test(to || '')) {
     return res.status(400).json({ success: false, message: 'from/to must be YYYY-MM-DD' });
   }
-  const fromTime = new Date(from + 'T00:00:00Z').getTime();
-  const toTime = new Date(to + 'T23:59:59.999Z').getTime();
-  if (isNaN(fromTime) || isNaN(toTime) || fromTime > toTime) {
+  const fromISO = new Date(from + 'T00:00:00Z').toISOString();
+  const toISO = new Date(to + 'T23:59:59.999Z').toISOString();
+  if (isNaN(Date.parse(fromISO)) || isNaN(Date.parse(toISO)) || fromISO > toISO) {
     return res.status(400).json({ success: false, message: 'Invalid date range' });
   }
 
-  const allRecords = await readAllRecords();
-  const inRange = allRecords.filter(r => {
-    const t = new Date(r.dateISO).getTime();
-    return t >= fromTime && t <= toTime;
-  });
+  const inRange = await recordsInDateRange(fromISO, toISO);
   const filtered = filterByVertical(inRange, vertical);
   const total = filtered.length;
 
@@ -603,7 +607,7 @@ app.get('/api/report/range', async (req, res) => {
     .sort((a, b) => a[0].localeCompare(b[0]))
     .map(([key, value]) => ({ name: key === 'unknown' ? 'Unknown' : formatWeekRangeLabel(key), value }));
 
-  const days = Math.max(1, Math.round((toTime - fromTime) / 86400000) + 1);
+  const days = Math.max(1, Math.round((Date.parse(toISO) - Date.parse(fromISO)) / 86400000) + 1);
   const topReason = byReason[0] || null;
   const topTimeSlot = [...byTimeSlot].sort((a, b) => b.value - a.value)[0] || null;
   const topMissedBy = byMissedBy[0] || null;
