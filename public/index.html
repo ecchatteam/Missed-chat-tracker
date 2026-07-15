@@ -81,15 +81,27 @@
   .rep-legend-item{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text)}
   .rep-legend-swatch{width:11px;height:11px;border-radius:3px;flex-shrink:0}
 
-  /* ── Login screen ─────────────────────────────────────────── */
+  /* ── Login screen — role picker card, matching Shift Roster style ──── */
+  .hidden{display:none !important}
   #loginScreen{position:fixed;inset:0;background:#152040;display:flex;align-items:center;justify-content:center;z-index:200}
   #loginScreen.hidden{display:none}
-  .login-card{background:#fff;border-radius:14px;padding:32px 36px;width:100%;max-width:340px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+  .login-card{background:#fff;border-radius:18px;padding:34px 38px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,.3);text-align:center}
+  .login-logo{width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,var(--blue),var(--teal));display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 14px}
   .login-card h2{margin:0 0 4px;font-size:18px;color:var(--ink)}
-  .login-card .sub{font-size:12.5px;color:var(--muted);margin-bottom:20px}
-  .login-card label{display:block;font-size:12px;font-weight:700;color:var(--muted);margin:12px 0 5px}
-  .login-card input{width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:7px;font-size:13px}
-  .login-card .btn{width:100%;margin-top:18px;padding:10px;font-size:13.5px}
+  .login-card .sub{font-size:12.5px;color:var(--muted);margin-bottom:22px}
+  .role-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .role-card{border:1px solid var(--border);border-radius:12px;padding:18px 10px;cursor:pointer;background:#fff;transition:.15s}
+  .role-card:hover{border-color:var(--blue);box-shadow:0 4px 14px rgba(47,128,237,.15)}
+  .role-icon{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;margin:0 auto 10px}
+  .role-icon.admin{background:#FDECD2}
+  .role-icon.guest{background:#E9ECF3}
+  .role-card b{display:block;font-size:13.5px;color:var(--ink)}
+  .role-card span{display:block;font-size:11px;color:var(--muted);margin-top:2px}
+  .login-form{margin-top:20px;text-align:left}
+  .login-form label{display:block;font-size:12px;font-weight:700;color:var(--muted);margin:10px 0 5px}
+  .login-form input{width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:7px;font-size:13px}
+  .login-form .btn{width:100%;margin-top:16px;padding:10px;font-size:13.5px}
+  .login-back{background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;margin-top:12px;text-decoration:underline}
   .login-error{color:var(--danger);font-size:12.5px;margin-top:10px;min-height:15px}
   #appRoot.hidden{display:none}
   /* Guest role: hide anything admin-only, and make the record table read-only */
@@ -105,13 +117,44 @@
 <!-- LOGIN SCREEN -->
 <div id="loginScreen">
   <div class="login-card">
-    <h2>📊 Missed Chat Tracker</h2>
-    <div class="sub">Sign in to continue</div>
-    <label>Username</label>
-    <input type="text" id="loginUsername" autocomplete="username">
-    <label>Password</label>
-    <input type="password" id="loginPassword" autocomplete="current-password">
-    <button class="btn" id="loginBtn">Log in</button>
+    <div class="login-logo">📊</div>
+    <h2>Missed Chat Tracker</h2>
+    <div class="sub">Choose how you're signing in</div>
+
+    <div class="role-grid" id="roleGrid">
+      <div class="role-card" id="adminCard">
+        <div class="role-icon admin">🛠️</div>
+        <b>Admin</b>
+        <span>Full control</span>
+      </div>
+      <div class="role-card" id="guestCard">
+        <div class="role-icon guest">👀</div>
+        <b>Guest</b>
+        <span>View only</span>
+      </div>
+    </div>
+
+    <div class="login-form hidden" id="adminForm">
+      <label>Username</label>
+      <input type="text" id="loginUsername" autocomplete="username">
+      <label>Password</label>
+      <input type="password" id="loginPassword" autocomplete="current-password">
+      <button class="btn" id="loginBtn">Log in as Admin</button>
+      <button class="login-back" id="showForgot">Forgot password?</button>
+      <button class="login-back" id="backToRoles">← Back</button>
+    </div>
+
+    <div class="login-form hidden" id="forgotForm">
+      <label>Username</label>
+      <input type="text" id="forgotUsername" autocomplete="username" placeholder="Admin">
+      <label>Reset key</label>
+      <input type="password" id="forgotResetKey" placeholder="ADMIN_RESET_KEY from Render">
+      <label>New password</label>
+      <input type="password" id="forgotNewPassword">
+      <button class="btn" id="forgotBtn">Reset password</button>
+      <button class="login-back" id="backToLoginFromForgot">← Back to login</button>
+    </div>
+
     <div class="login-error" id="loginError"></div>
   </div>
 </div>
@@ -127,10 +170,28 @@
     <div class="user-badge">
       <span id="userBadgeName"></span>
       <span class="role-pill" id="userBadgeRole"></span>
+      <button class="admin-only" id="changePwBtn">Change password</button>
       <button id="logoutBtn">Log out</button>
     </div>
   </div>
 </header>
+
+<!-- CHANGE PASSWORD MODAL (admin only) -->
+<div id="changePwModal" class="hidden" style="position:fixed;inset:0;background:rgba(21,32,64,.5);display:flex;align-items:center;justify-content:center;z-index:150">
+  <div style="background:#fff;border-radius:14px;padding:26px 30px;width:100%;max-width:340px">
+    <h3 style="margin:0 0 4px;font-size:16px">Change password</h3>
+    <div style="font-size:12.5px;color:var(--muted);margin-bottom:16px">Update your Admin login password</div>
+    <label style="display:block;font-size:12px;font-weight:700;color:var(--muted);margin:8px 0 5px">Current password</label>
+    <input type="password" id="cpCurrent" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:7px;font-size:13px">
+    <label style="display:block;font-size:12px;font-weight:700;color:var(--muted);margin:10px 0 5px">New password</label>
+    <input type="password" id="cpNew" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:7px;font-size:13px">
+    <div id="cpError" style="color:var(--danger);font-size:12.5px;margin-top:8px;min-height:15px"></div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn" id="cpSaveBtn" style="flex:1">Save</button>
+      <button class="btn ghost" id="cpCancelBtn" style="flex:1">Cancel</button>
+    </div>
+  </div>
+</div>
 
 <div class="container">
   <div class="tabs">
@@ -671,6 +732,14 @@ async function loadReports(){
   const vertical = document.getElementById('verticalPicker').value;
   document.getElementById('repRangeSummary').textContent = `${formatDisplayDate(repFrom)} → ${formatDisplayDate(repTo)} · ${vertical === 'All' ? 'All verticals' : vertical}`;
 
+  // Immediate feedback so a cold Render instance waking up (free-tier
+  // spin-down after ~15 min idle) doesn't look like the click did nothing —
+  // this shows the moment the tab/filter is clicked, before the fetch below
+  // even resolves.
+  document.getElementById('repKpis').innerHTML = Array.from({length:6}).map(()=>
+    `<div class="rep-kpi-card"><div class="rep-kpi-num" style="color:var(--border)">···</div><div class="rep-kpi-label">Loading…</div></div>`
+  ).join('');
+
   let data;
   try{
     data = await apiCall(`/api/report/range?from=${repFrom}&to=${repTo}&vertical=${encodeURIComponent(vertical)}`);
@@ -783,6 +852,29 @@ function showApp(user){
   document.getElementById('loginScreen').classList.add('hidden');
   document.getElementById('appRoot').classList.remove('hidden');
 }
+
+// ── Role-card picker ──────────────────────────────────
+document.getElementById('adminCard').addEventListener('click', ()=>{
+  document.getElementById('roleGrid').classList.add('hidden');
+  document.getElementById('adminForm').classList.remove('hidden');
+  document.getElementById('loginUsername').focus();
+});
+document.getElementById('backToRoles').addEventListener('click', ()=>{
+  document.getElementById('adminForm').classList.add('hidden');
+  document.getElementById('roleGrid').classList.remove('hidden');
+  document.getElementById('loginError').textContent = '';
+});
+document.getElementById('guestCard').addEventListener('click', async ()=>{
+  const errEl = document.getElementById('loginError');
+  errEl.textContent = '';
+  try{
+    const res = await fetch('/api/auth/guest-login', { method: 'POST' });
+    const data = await res.json();
+    if(!data.success){ errEl.textContent = 'Could not start guest session.'; return; }
+    showApp(data.user);
+    await initApp();
+  }catch(e){ errEl.textContent = 'Could not reach the server.'; }
+});
 document.getElementById('loginBtn').addEventListener('click', doLogin);
 document.getElementById('loginPassword').addEventListener('keydown', e => { if(e.key === 'Enter') doLogin(); });
 async function doLogin(){
@@ -802,6 +894,71 @@ async function doLogin(){
     await initApp();
   }catch(e){ errEl.textContent = 'Could not reach the server.'; }
 }
+document.getElementById('showForgot').addEventListener('click', ()=>{
+  document.getElementById('adminForm').classList.add('hidden');
+  document.getElementById('forgotForm').classList.remove('hidden');
+  document.getElementById('loginError').textContent = '';
+});
+document.getElementById('backToLoginFromForgot').addEventListener('click', ()=>{
+  document.getElementById('forgotForm').classList.add('hidden');
+  document.getElementById('adminForm').classList.remove('hidden');
+  document.getElementById('loginError').textContent = '';
+});
+document.getElementById('forgotBtn').addEventListener('click', async ()=>{
+  const username = document.getElementById('forgotUsername').value.trim() || 'Admin';
+  const resetKey = document.getElementById('forgotResetKey').value;
+  const newPassword = document.getElementById('forgotNewPassword').value;
+  const errEl = document.getElementById('loginError');
+  errEl.textContent = '';
+  if(!resetKey || !newPassword){ errEl.textContent = 'Reset key and new password are required.'; return; }
+  try{
+    const res = await fetch('/api/auth/forgot-password', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ username, resetKey, newPassword })
+    });
+    const data = await res.json();
+    if(!data.success){ errEl.textContent = data.message || 'Could not reset password.'; return; }
+    errEl.style.color = 'var(--green)';
+    errEl.textContent = 'Password reset — you can log in now.';
+    document.getElementById('forgotResetKey').value = '';
+    document.getElementById('forgotNewPassword').value = '';
+    setTimeout(()=>{
+      errEl.style.color = '';
+      document.getElementById('forgotForm').classList.add('hidden');
+      document.getElementById('adminForm').classList.remove('hidden');
+    }, 1500);
+  }catch(e){ errEl.textContent = 'Could not reach the server.'; }
+});
+
+// ── Change password (admin, logged in) ────────────────
+document.getElementById('changePwBtn').addEventListener('click', ()=>{
+  document.getElementById('cpCurrent').value = '';
+  document.getElementById('cpNew').value = '';
+  document.getElementById('cpError').textContent = '';
+  document.getElementById('changePwModal').classList.remove('hidden');
+});
+document.getElementById('cpCancelBtn').addEventListener('click', ()=>{
+  document.getElementById('changePwModal').classList.add('hidden');
+});
+document.getElementById('cpSaveBtn').addEventListener('click', async ()=>{
+  const currentPassword = document.getElementById('cpCurrent').value;
+  const newPassword = document.getElementById('cpNew').value;
+  const errEl = document.getElementById('cpError');
+  errEl.textContent = '';
+  if(!currentPassword || !newPassword){ errEl.textContent = 'Both fields are required.'; return; }
+  try{
+    const res = await fetch('/api/auth/change-password', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ currentPassword, newPassword })
+    });
+    const data = await res.json();
+    if(!data.success){ errEl.textContent = data.message || 'Could not change password.'; return; }
+    errEl.style.color = 'var(--green)';
+    errEl.textContent = 'Password updated!';
+    setTimeout(()=>{ document.getElementById('changePwModal').classList.add('hidden'); errEl.style.color=''; }, 1200);
+  }catch(e){ errEl.textContent = 'Could not reach the server.'; }
+});
+
 document.getElementById('logoutBtn').addEventListener('click', async ()=>{
   await fetch('/api/auth/logout', { method: 'POST' });
   location.reload();
