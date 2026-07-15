@@ -25,6 +25,12 @@ app.use('/api/auth', authRoutes());
 // but every /api/* route below is gated: GET/read routes require any logged
 // in user, write routes require the admin role specifically.
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Public, no-auth, no-DB health check — used by external keep-alive pings
+// (see note in .env.example) to stop Render's free tier from spinning the
+// service down after 15 minutes idle, without adding real database load.
+app.get('/healthz', (req, res) => res.status(200).send('ok'));
+
 app.use('/api', requireAuth);
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } });

@@ -89,6 +89,13 @@ function authRoutes() {
     res.json({ success: true, user: req.session.user });
   });
 
+  // One-click Guest access — no password, view-only. Matches the "tap a
+  // card, get in" pattern of your Shift Roster app's role picker.
+  router.post('/guest-login', (req, res) => {
+    req.session.user = { username: 'Guest', role: 'guest' };
+    res.json({ success: true, user: req.session.user });
+  });
+
   router.post('/logout', (req, res) => {
     req.session.destroy(() => res.json({ success: true }));
   });
@@ -120,6 +127,30 @@ function authRoutes() {
     const user = await usersCol().findOne({ username: req.session.user.username });
     const ok = await bcrypt.compare(currentPassword, user.passwordHash);
     if (!ok) return res.status(401).json({ success: false, message: 'Current password is incorrect.' });
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    await usersCol().updateOne({ username: user.username }, { $set: { passwordHash } });
+    res.json({ success: true });
+  });
+
+  // Recovery path for a forgotten Admin password — doesn't require knowing
+  // the old password, but requires the ADMIN_RESET_KEY env var set on
+  // Render (Environment tab), which only you can see/set. Anyone without
+  // that key cannot reset the account, so it's safe to expose publicly.
+  router.post('/forgot-password', async (req, res) => {
+    const { username, resetKey, newPassword } = req.body || {};
+    if (!username || !resetKey || !newPassword) {
+      return res.status(400).json({ success: false, message: 'username, resetKey, and newPassword are all required.' });
+    }
+    const expectedKey = process.env.ADMIN_RESET_KEY;
+    if (!expectedKey) {
+      return res.status(500).json({ success: false, message: 'No ADMIN_RESET_KEY is configured on the server — set one in Render\'s Environment tab first.' });
+    }
+    if (resetKey !== expectedKey) {
+      return res.status(401).json({ success: false, message: 'Incorrect reset key.' });
+    }
+    const user = await usersCol().findOne({ username: String(username).trim() });
+    if (!user) return res.status(404).json({ success: false, message: `No user named "${username}" exists.` });
 
     const passwordHash = await bcrypt.hash(newPassword, 10);
     await usersCol().updateOne({ username: user.username }, { $set: { passwordHash } });
