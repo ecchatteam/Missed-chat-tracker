@@ -110,7 +110,20 @@
   .user-badge{font-size:12px;color:#AEB9D1;display:flex;align-items:center;gap:8px}
   .user-badge .role-pill{background:rgba(255,255,255,.12);padding:2px 9px;border-radius:20px;font-weight:700;text-transform:uppercase;font-size:10.5px;letter-spacing:.3px}
   .user-badge button{background:none;border:1px solid #3A4A72;color:#fff;padding:5px 12px;border-radius:7px;font-size:12px;cursor:pointer}
+
+  /* ── Print (used by both "Print as PDF" buttons via window.print()) ──
+     Browsers turn "Save as PDF" into just another printer target, so the
+     same @media print rules cover both the literal print button and the
+     PDF option in the print dialog. Only the report/table content shows;
+     all nav, filters, and admin action buttons drop out of the page. */
+  @media print{
+    .no-print, .admin-only{ display:none !important }
+    body{ background:#fff !important }
+    .card{ box-shadow:none !important; border:1px solid #ddd !important; break-inside:avoid }
+    #loginScreen{ display:none !important }
+  }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
 
@@ -160,7 +173,7 @@
 </div>
 
 <div id="appRoot" class="hidden">
-<header>
+<header class="no-print">
   <div>
     <h1>📊 Missed Chat Tracker</h1>
     <div class="sub">Weekly import → fill in the gaps → auto reports</div>
@@ -177,7 +190,7 @@
 </header>
 
 <!-- CHANGE PASSWORD MODAL (admin only) -->
-<div id="changePwModal" class="hidden" style="position:fixed;inset:0;background:rgba(21,32,64,.5);display:flex;align-items:center;justify-content:center;z-index:150">
+<div id="changePwModal" class="hidden no-print" style="position:fixed;inset:0;background:rgba(21,32,64,.5);display:flex;align-items:center;justify-content:center;z-index:150">
   <div style="background:#fff;border-radius:14px;padding:26px 30px;width:100%;max-width:340px">
     <h3 style="margin:0 0 4px;font-size:16px">Change password</h3>
     <div style="font-size:12.5px;color:var(--muted);margin-bottom:16px">Update your Admin login password</div>
@@ -194,21 +207,21 @@
 </div>
 
 <div class="container">
-  <div class="tabs">
+  <div class="tabs no-print">
     <button class="tab-btn active" data-tab="import">📥 Import & Edit</button>
     <button class="tab-btn" data-tab="reports">📈 Reports</button>
   </div>
 
   <!-- IMPORT & EDIT TAB -->
   <div id="tab-import">
-    <div class="card admin-only">
+    <div class="card admin-only no-print">
       <div class="toolbar">
         <input type="file" id="csvFile" accept=".csv">
         <button class="btn" id="uploadBtn">Upload weekly CSV</button>
         <span id="uploadStatus" style="font-size:12.5px;color:var(--muted)"></span>
       </div>
     </div>
-    <div class="card">
+    <div class="card no-print">
       <div class="rep-topbar" style="margin-bottom:0">
         <div class="rep-title" style="font-size:13px">🔎 Filter rows</div>
         <div class="rep-range-controls">
@@ -235,11 +248,15 @@
       <div class="rep-range-summary" id="editRangeSummary" style="margin:2px 0 0"></div>
     </div>
     <div class="card">
-      <div class="toolbar" style="justify-content:space-between">
+      <div class="toolbar no-print" style="justify-content:space-between">
         <div class="admin-only" style="display:flex;gap:8px;align-items:center">
           <button class="btn danger" id="deleteSelectedBtn" disabled>🗑 Delete selected (<span id="selectedCount">0</span>)</button>
         </div>
-        <button class="btn danger admin-only" id="deleteMonthBtn">🗑 Delete this entire month</button>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn" id="editExportCsvBtn">⬇️ Export as CSV</button>
+          <button class="btn" id="editPrintBtn">🖨️ Print as PDF</button>
+          <button class="btn danger admin-only" id="deleteMonthBtn">🗑 Delete this entire month</button>
+        </div>
       </div>
       <div id="editTableWrap"><div class="empty">Pick a month above, or upload a CSV to get started.</div></div>
     </div>
@@ -247,7 +264,7 @@
 
   <!-- REPORTS TAB -->
   <div id="tab-reports" style="display:none">
-    <div class="rep-topbar">
+    <div class="rep-topbar no-print">
       <div class="rep-title">📈 Missed Chat Reports</div>
       <div class="rep-range-controls">
         <button class="rep-preset-btn" data-preset="today">Today</button>
@@ -272,7 +289,12 @@
           <select id="verticalPicker"><option value="All">All verticals</option></select>
         </label>
       </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn" id="reportPrintBtn">🖨️ Print / Save as PDF</button>
+        <button class="btn" id="reportJpegBtn">📷 Export as JPEG</button>
+      </div>
     </div>
+    <div id="reportExportArea">
     <div class="rep-range-summary" id="repRangeSummary"></div>
 
     <div class="rep-kpi-row" id="repKpis"></div>
@@ -312,6 +334,7 @@
         <div id="repTimeSlotBar" class="rep-chart-body"></div>
       </div>
     </div>
+    </div><!-- /#reportExportArea -->
   </div>
 </div>
 
@@ -320,6 +343,7 @@
 <script>
 let CURRENT_MONTH = null;
 let REASON_OPTIONS = [], TIME_RANGE_OPTIONS = [], VERTICALS = [];
+let CURRENT_EDIT_RECORDS = []; // mirrors whatever renderEditTable() last drew, used by CSV export
 let EDIT_MODE = 'month'; // 'month' (top-right month picker) or 'range' (filter bar below)
 let editFrom = null, editTo = null;
 let repFrom = null, repTo = null;
@@ -483,6 +507,7 @@ async function loadRecords(){
 }
 
 function renderEditTable(records){
+  CURRENT_EDIT_RECORDS = records;
   const wrap = document.getElementById('editTableWrap');
   if(!records.length){ wrap.innerHTML = `<div class="empty">No records for this month yet. Upload a CSV above.</div>`; updateSelectedCount(); return; }
 
@@ -826,6 +851,49 @@ function renderReports(data){
     : `<div class="rep-empty">No rows have a name in "Missed By" yet (${missedByFilledPct}% filled in) — fill it in on the Import & Edit tab to see who's missing the most chats.</div>`;
   document.getElementById('repTimeSlotBar').innerHTML = repBarChart(byTimeSlot);
 }
+
+// ── Export / Print (available to Admin and Guest — read-only actions) ──
+function csvEscape(val){
+  const s = String(val ?? '');
+  return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+function downloadBlob(blob, filename){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+}
+
+document.getElementById('editExportCsvBtn').addEventListener('click', ()=>{
+  if(!CURRENT_EDIT_RECORDS.length){ showToast('No rows to export — pick a month or filter with data first.', true); return; }
+  const headers = ['Sl.No','Visitor ID','Department','Missed By','Attender','Date','Country','Time Range','Reason for Missed'];
+  const lines = [headers.join(',')];
+  CURRENT_EDIT_RECORDS.forEach((r, i) => {
+    lines.push([
+      i+1, r.visitorId, r.department, r.missedBy || '', r.attender,
+      formatDate(r.dateISO),
+      r.country, r.timeRange, r.reasonForMissed || ''
+    ].map(csvEscape).join(','));
+  });
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const stamp = (CURRENT_MONTH || 'custom-range');
+  downloadBlob(blob, `missed-chats-${stamp}.csv`);
+});
+
+document.getElementById('editPrintBtn').addEventListener('click', ()=>{ window.print(); });
+document.getElementById('reportPrintBtn').addEventListener('click', ()=>{ window.print(); });
+
+document.getElementById('reportJpegBtn').addEventListener('click', async ()=>{
+  const area = document.getElementById('reportExportArea');
+  try{
+    const canvas = await html2canvas(area, { backgroundColor: '#F4F6FB', scale: 2 });
+    canvas.toBlob(blob => {
+      if(!blob){ showToast('Could not generate the image.', true); return; }
+      downloadBlob(blob, `missed-chat-report-${new Date().toISOString().slice(0,10)}.jpg`);
+    }, 'image/jpeg', 0.95);
+  }catch(e){ showToast('Could not export as JPEG — try Print / Save as PDF instead.', true); }
+});
 
 // ── Boot ──────────────────────────────────────────────
 async function initApp(){
